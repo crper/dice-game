@@ -1,0 +1,61 @@
+{
+  "name": "dice-game-3d",
+  "version": "1.0.0",
+  "description": "A 3D dice game built with React, TypeScript, Three.js and Tailwind CSS — Liar's Dice (大话骰) with hidden hands and bidding, plus an open-roll mode. Rigid-body tumbling, responsive layout, GitHub Pages ready.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dice",
+    "3d",
+    "react",
+    "typescript",
+    "three",
+    "threejs",
+    "vite",
+    "tailwindcss",
+    "liars-dice",
+    "game"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crper/dice-game.git"
+  },
+  "homepage": "https://crper.github.io/dice-game/",
+  "bugs": {
+    "url": "https://github.com/crper/dice-game/issues"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "verify:faces": "node scripts/verify-faces.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run verify:faces"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.45.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@types/three": "^0.185.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "oxlint": "^1.79.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  }
+}

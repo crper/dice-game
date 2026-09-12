@@ -1,0 +1,71 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Allows a manual run from the Actions tab.
+  workflow_dispatch:
+
+# Grant the token the permissions the Pages deployment needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a queued run finish, but never run two deployments at once.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # Installs the Vite+ toolchain (vp) plus Node, and runs `vp install`
+      # against the npm lockfile with dependency caching enabled.
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1.20.0
+        with:
+          node-version: lts
+          cache: true
+
+      - name: Type-check
+        run: vp run typecheck
+
+      - name: Lint
+        run: vp run lint
+
+      - name: Unit tests
+        run: vp run test
+
+      - name: Verify the dice face mapping
+        run: vp run verify:faces
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build
+        # `base_path` is "/<repo>/" for project sites and "" for user sites.
+        env:
+          VITE_BASE: ${{ steps.pages.outputs.base_path }}/
+        run: vp run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
