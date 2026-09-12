@@ -26,11 +26,18 @@ jobs:
 
       # Installs the Vite+ toolchain (vp) plus Node, and runs `vp install`
       # against the npm lockfile with dependency caching enabled.
+      #
+      # `package-manager: false` hands installing back to the runner's stock
+      # npm. The lockfile was generated against npmmirror, which stores some
+      # packages as plain tarball URLs, and Vite+'s managed npm rejects remote
+      # tarballs (EALLOWREMOTE). Drop this line if the lockfile is ever
+      # regenerated against the official registry.
       - name: Set up Vite+
         uses: voidzero-dev/setup-vp@v1.20.0
         with:
           node-version: lts
           cache: true
+          package-manager: false
 
       - name: Type-check
         run: vp run typecheck
