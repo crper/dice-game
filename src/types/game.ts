@@ -89,7 +89,8 @@ export interface GameSettings {
   reduceMotion: boolean
 }
 
-/** Read-out for `open` mode: the roll plus a plain-language verdict. */
+/** Read-out for `open` mode: the roll plus a structured verdict. Components
+ *  translate `kind` + the payloads, so the lib layer carries no copy. */
 export interface OpenModeVerdict {
   summary: RollSummary
   /** Sum compared against the statistical mean (3.5 × dice count). */
@@ -98,8 +99,12 @@ export interface OpenModeVerdict {
   isAllSame: boolean
   /** The distinct faces form a run (顺子). */
   isStraight: boolean
-  /** Short headline, e.g. "豹子" / "大". */
-  label: string
-  /** One-line explanation of the headline. */
-  detail: string
+  /** Headline selector, in priority order: 豹子 > 顺子 > 大/小. */
+  kind: 'leopard' | 'straight' | 'big' | 'small'
+  /** Present when `kind` is 'leopard': the single face all dice show. */
+  leopardFace?: number
+  /** Present when `kind` is 'straight': the ascending distinct faces. */
+  straightFaces?: number[]
+  /** Present when `kind` is 'leopard': one-in-six^count style odds text. */
+  leopardOdds?: string
 }

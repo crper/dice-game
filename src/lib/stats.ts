@@ -4,9 +4,10 @@ import { expectedSum, summarize } from './dice'
 /**
  * Interpret a fully revealed roll for the open (`明牌`) mode.
  *
- * The headline is picked by priority: 豹子 (all dice equal) beats 顺子 (a run of
- * distinct faces), which beats the plain big/small comparison against the
- * statistical mean of 3.5 per die.
+ * The verdict is structured, not worded: the headline is picked by priority —
+ * 豹子 (all dice equal) beats 顺子 (a run of distinct faces), which beats the
+ * plain big/small comparison against the statistical mean of 3.5 per die — and
+ * components turn `kind` + payloads into localized text.
  */
 export function analyzeOpenRoll(values: number[]): OpenModeVerdict {
   const summary = summarize(values)
@@ -28,8 +29,9 @@ export function analyzeOpenRoll(values: number[]): OpenModeVerdict {
       size,
       isAllSame,
       isStraight: false,
-      label: '豹子',
-      detail: `${count} 颗骰子全部是 ${distinct[0]} 点，出现概率约 ${allSameOdds(count)}。`,
+      kind: 'leopard',
+      leopardFace: distinct[0],
+      leopardOdds: allSameOdds(count),
     }
   }
 
@@ -39,8 +41,8 @@ export function analyzeOpenRoll(values: number[]): OpenModeVerdict {
       size,
       isAllSame,
       isStraight,
-      label: '顺子',
-      detail: `${distinct.join(' - ')}，${count} 颗骰子点数各不相同且连续。`,
+      kind: 'straight',
+      straightFaces: distinct,
     }
   }
 
@@ -49,11 +51,7 @@ export function analyzeOpenRoll(values: number[]): OpenModeVerdict {
     size,
     isAllSame,
     isStraight,
-    label: size === 'big' ? '大' : '小',
-    detail:
-      size === 'big'
-        ? `点数总和 ${summary.sum}，高于理论均值 ${mean}。`
-        : `点数总和 ${summary.sum}，低于理论均值 ${mean}。`,
+    kind: size,
   }
 }
 

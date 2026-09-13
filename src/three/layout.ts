@@ -83,10 +83,34 @@ export const TRAY_CORNER_RATIO = 0.42
 export function trayReach(tray: SeatTray): number {
   const corner = Math.min(tray.width, tray.depth) * TRAY_CORNER_RATIO
   // The label band extends the tray away from the table centre.
-  const farZ =
-    Math.abs(tray.center.z) + tray.depth / 2 + tray.band
+  const farZ = Math.abs(tray.center.z) + tray.depth / 2 + tray.band
   const farX = Math.abs(tray.center.x) + tray.width / 2
   return Math.hypot(Math.max(0, farX - corner), Math.max(0, farZ - corner)) + corner
+}
+
+/**
+ * Points along a tray's rounded outline, in table space.
+ *
+ * The camera fits against these rather than the felt rim: the trays (and the
+ * dice inside them) are the subject, and letting the outer felt run past the
+ * frame reads as a close-up instead of a floating disc.
+ */
+export function trayOutlinePoints(tray: SeatTray, segments = 24): THREE.Vector3[] {
+  const halfWidth = tray.width / 2
+  const halfDepth = tray.depth / 2
+  const corner = Math.min(tray.width, tray.depth) * TRAY_CORNER_RATIO
+  const cx = Math.max(0, halfWidth - corner)
+  const cz = Math.max(0, halfDepth - corner)
+
+  const points: THREE.Vector3[] = []
+  for (let i = 0; i < segments; i += 1) {
+    const angle = (i / segments) * Math.PI * 2
+    const x = tray.center.x + Math.sign(Math.cos(angle)) * (cx + corner * Math.abs(Math.cos(angle)))
+    const z =
+      tray.center.z + tray.band / 2 + Math.sign(Math.sin(angle)) * (cz + corner * Math.abs(Math.sin(angle)))
+    points.push(new THREE.Vector3(x, 0, z))
+  }
+  return points
 }
 
 /** Dice per row before the layout wraps. */

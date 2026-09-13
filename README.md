@@ -33,9 +33,10 @@ The dice are not sprites or CSS tricks. Each one is a rounded-box mesh driven by
 - **3D dice on a felt table** — rounded-box geometry, procedurally drawn pip textures with recessed holes, image-based lighting, soft shadows, and a baked light pool on the felt.
 - **Tumbling physics** — a free-tumble phase followed by a settle phase that snaps each die to a provably correct resting orientation.
 - **Interaction that behaves** — the camera can never rotate far enough to put the far seat in front of the near one; three angle presets replace drag-only control; vertical page scrolling is never swallowed on touch; and in open mode the felt itself is the roll button.
-- **Responsive** — single column on phones, table-and-console on laptops, table-and-sidebar on wide screens. The camera reserves room for the overlays, so dice are never hidden behind a button, and every primary control stays above the fold down to an 800 px-tall viewport.
+- **Responsive** — one column on phones, table-plus-sidebar on wide screens. All in-round controls live on the table itself (a bidding console in Liar's Dice, count + throw in open mode); the camera reads the real overlay heights and fits the dice into the space left over.
+- **Bilingual UI** — Simplified Chinese by default with one-tap English from the app bar; the choice persists, and even the felt tray labels are repainted in the selected language.
 - **Feedback that reads** — explicit button states, a live phase indicator on the table, a winner banner whose wording is derived from the actual judgement, animated reveals, and synthesised sound effects (no audio assets, mutable).
-- **Accessible** — a native `<dialog>`, real radio-group and checkbox semantics, `role="status"` announcements, visible focus rings, and `prefers-reduced-motion` support that skips the tumble entirely.
+- **Accessible** — Radix-based primitives via shadcn/ui (dialog, slider, switch, toggle group), `role="status"` announcements, visible focus rings, and `prefers-reduced-motion` support that skips the tumble entirely.
 - **Graceful degradation** — without WebGL the table falls back to a flat pip rendering of the same roll instead of showing an error.
 
 ## Rules in brief
@@ -87,21 +88,22 @@ The script loads the real modules through Vite's resolver and asserts, for all s
 ```
 src/
 ├── components/           # Presentational and container components
-│   ├── ui/               # Reusable primitives (Button, Dialog, Stepper, Switch, …)
-│   ├── DiceStage.tsx     # WebGL canvas host and its overlays
-│   ├── BidPanel.tsx      # The player's bidding console
+│   ├── ui/               # shadcn/ui primitives (button, dialog, slider, switch, …)
+│   │                     # plus game-specific pieces (PipFace, icon re-exports)
+│   ├── DiceStage.tsx     # WebGL canvas host, HUD chrome and the on-table console
+│   ├── TableConsole.tsx  # On-felt controls: bidding (Liar's Dice), count + throw (open)
 │   ├── ResultCard.tsx    # Post-challenge breakdown
 │   └── OpenRollCard.tsx  # Open-mode result report
 ├── hooks/
 │   ├── useDiceGame.ts    # Round orchestration: timers, AI turns, sound, persistence
 │   └── useDiceScene.ts   # Bridges React state to the imperative Three.js scene
-├── lib/                  # Pure logic — no React, no Three.js
+├── i18n/                 # react-i18next setup + zh/en resource trees (zh is default)
+├── lib/                  # Pure logic — no React, no Three.js, no copy
 │   ├── constants.ts      # Tuning values and limits
 │   ├── dice.ts           # Rolling, summaries, randomness
 │   ├── liarDice.ts       # Bid validation, probability estimates, AI decisions
 │   ├── sound.ts          # Synthesised WebAudio effects
-│   ├── stats.ts          # Open-mode verdicts and distributions
-│   └── copy.ts           # All user-facing strings
+│   └── stats.ts          # Structured open-mode verdicts and distributions
 ├── state/
 │   └── gameReducer.ts    # The pure game state machine
 ├── three/                # Everything Three.js
@@ -153,10 +155,12 @@ VITE_BASE=/your-repo/ npm run build
 | Layer | Choice |
 | --- | --- |
 | UI | React 19 |
-| Language | TypeScript 6 (strict, `verbatimModuleSyntax`, `erasableSyntaxOnly`) |
+| Components | shadcn/ui (Radix primitives) — button, dialog, slider, switch, toggle group, card, badge |
+| Language | TypeScript 7 (strict, `verbatimModuleSyntax`, `erasableSyntaxOnly`) |
 | Build | Vite 8 (Rolldown), Vite+ toolchain in CI |
-| 3D | Three.js 0.185 |
-| Styling | Tailwind CSS 4, `clsx` + `tailwind-merge` |
+| 3D | Three.js 0.186 |
+| Styling | Tailwind CSS 4 with the `cn` class-merging helper |
+| i18n | i18next + react-i18next (简体中文 default, English one tap away) |
 | Icons | lucide-react |
 | Tests | Vitest |
 | Linting | Oxlint |

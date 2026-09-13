@@ -1,8 +1,9 @@
-import type { GameMode } from '../types/game'
-import { Button } from './ui/Button'
-import { SegmentedControl } from './ui/SegmentedControl'
-import { BookIcon, DiceIcon, EyeIcon, SwordsIcon, VolumeOffIcon, VolumeOnIcon } from './ui/icons'
-import { MODE_DESCRIPTIONS } from '../lib/copy'
+import type { GameMode } from '@/types/game'
+import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { BookIcon, DiceIcon, EyeIcon, SwordsIcon, VolumeOffIcon, VolumeOnIcon } from '@/components/ui/icons'
+import { persistLanguage } from '@/i18n'
 
 export interface HeaderProps {
   mode: GameMode
@@ -13,8 +14,15 @@ export interface HeaderProps {
   busy: boolean
 }
 
-/** Sticky app bar: identity, mode switch and the two global toggles. */
+/** Sticky app bar: identity, mode switch, language and the two global toggles. */
 export function Header({ mode, onModeChange, soundEnabled, onSoundToggle, onOpenRules, busy }: HeaderProps) {
+  const { t, i18n } = useTranslation()
+
+  const switchLanguage = (language: string) => {
+    void i18n.changeLanguage(language)
+    persistLanguage(language)
+  }
+
   return (
     <header className="sticky top-0 z-30 border-b border-white/8 bg-room-950/85 backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
@@ -23,52 +31,68 @@ export function Header({ mode, onModeChange, soundEnabled, onSoundToggle, onOpen
             <DiceIcon className="h-6 w-6" strokeWidth={2} />
           </span>
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold text-white sm:text-lg">3D 骰子游戏</h1>
-            <p className="truncate text-xs text-slate-400">{MODE_DESCRIPTIONS[mode]}</p>
+            <h1 className="truncate text-base font-semibold text-white sm:text-lg">{t('app.title')}</h1>
+            <p className="truncate text-xs text-slate-400">{t(`app.subtitle.${mode}`)}</p>
           </div>
         </div>
 
-        <SegmentedControl
-          name="game-mode"
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          spacing={0}
           value={mode}
-          onChange={onModeChange}
-          size="sm"
-          className="order-last w-full sm:order-none sm:w-auto sm:min-w-[19rem]"
-          options={[
-            { value: 'liar' as GameMode, label: '大话骰', hint: '翻盖叫骰', icon: <SwordsIcon className="h-4 w-4" /> },
-            { value: 'open' as GameMode, label: '明牌', hint: '直接开盅', icon: <EyeIcon className="h-4 w-4" /> },
-          ]}
-        />
+          onValueChange={(value) => value && onModeChange(value as GameMode)}
+          aria-label={t('setup.title')}
+          className="order-last w-full sm:order-none sm:w-auto"
+        >
+          <ToggleGroupItem value="liar" className="h-9 flex-1 flex-col gap-0 px-4 sm:flex-row sm:gap-1.5">
+            <span className="flex items-center gap-1.5 text-[13px] font-medium">
+              <SwordsIcon className="h-4 w-4" />
+              {t('mode.liar')}
+            </span>
+            <span className="text-[10px] text-slate-500">{t('mode.liarHint')}</span>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="open" className="h-9 flex-1 flex-col gap-0 px-4 sm:flex-row sm:gap-1.5">
+            <span className="flex items-center gap-1.5 text-[13px] font-medium">
+              <EyeIcon className="h-4 w-4" />
+              {t('mode.open')}
+            </span>
+            <span className="text-[10px] text-slate-500">{t('mode.openHint')}</span>
+          </ToggleGroupItem>
+        </ToggleGroup>
 
         <div className="flex shrink-0 items-center gap-2">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            spacing={0}
+            value={i18n.language}
+            onValueChange={(value) => value && switchLanguage(value)}
+            aria-label={t('header.language')}
+          >
+            <ToggleGroupItem value="zh" className="px-2.5 text-xs">
+              中文
+            </ToggleGroupItem>
+            <ToggleGroupItem value="en" className="px-2.5 text-xs">
+              EN
+            </ToggleGroupItem>
+          </ToggleGroup>
+
           <Button
             variant="ghost"
-            size="sm"
-            aria-label={soundEnabled ? '关闭音效' : '开启音效'}
+            size="icon"
+            aria-label={soundEnabled ? t('header.soundOn') : t('header.soundOff')}
             aria-pressed={soundEnabled}
             onClick={onSoundToggle}
-            className="w-9 px-0"
           >
-            {soundEnabled ? <VolumeOnIcon className="h-4.5 w-4.5" /> : <VolumeOffIcon className="h-4.5 w-4.5" />}
+            {soundEnabled ? <VolumeOnIcon /> : <VolumeOffIcon />}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onOpenRules}
-            leading={<BookIcon className="h-4 w-4" />}
-            className="hidden sm:inline-flex"
-            disabled={busy}
-          >
-            规则
+          <Button variant="outline" onClick={onOpenRules} disabled={busy} className="hidden sm:inline-flex">
+            <BookIcon data-icon="inline-start" />
+            {t('header.rules')}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="查看规则"
-            onClick={onOpenRules}
-            className="w-9 px-0 sm:hidden"
-          >
-            <BookIcon className="h-4.5 w-4.5" />
+          <Button variant="ghost" size="icon" aria-label={t('header.rulesAria')} onClick={onOpenRules} className="sm:hidden">
+            <BookIcon />
           </Button>
         </div>
       </div>

@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { DICE_MAX, DICE_MIN, REVEAL_DURATION_MS, ROLL_DURATION_MS } from '../lib/constants'
 import { FACE_MATERIAL_ORDER } from './diceFace'
-import { computeLayout, trayReach, type DiceLayout } from './layout'
+import { computeLayout, trayOutlinePoints, trayReach, type DiceLayout } from './layout'
 import { createHiddenTexture, createPipTexture } from './pipTexture'
 import {
   createEnvironment,
@@ -18,15 +18,7 @@ import { TumbleSimulation, type DieTarget } from './tumble'
 /** Nominal edge length of one die, in world units. */
 const DIE_SIZE = 1
 const CAMERA_FOV = 36
-/**
- * How much of the viewport the fitted content may occupy. The two axes differ
- * because the HTML overlays sit along the top and bottom edges. Portrait stages
- * carry a taller overlay stack (status pill, action button, hint), so they
- * reserve more vertical room; the wide layout reserves less.
- */
-function fitFillFor(aspect: number): { x: number; y: number } {
-  return aspect < 1 ? { x: 0.86, y: 0.6 } : { x: 0.84, y: 0.72 }
-}
+
 /** The camera stays in front of the table, so a seat's dice never swap sides. */
 const AZIMUTH_LIMIT = THREE.MathUtils.degToRad(52)
 const TABLE_RADIUS_MIN = 2.6
@@ -75,6 +67,14 @@ interface DieEntry {
   baseY: number
 }
 
+/** Nudge a table-space point outward from the centre, as fit padding. */
+function pushOut(point: THREE.Vector3, amount: number): THREE.Vector3 {
+  const length = Math.hypot(point.x, point.z) || 1
+  point.x *= (length + amount) / length
+  point.z *= (length + amount) / length
+  return point
+}
+
 function tableRadiusFor(layout: DiceLayout): number {
   // Keep the felt close to the dice so the camera can stay low and the dice
   // read large; a much wider table would shrink them for no benefit. The trays
@@ -88,10 +88,24 @@ function tableRadiusFor(layout: DiceLayout): number {
 }
 
 /**
+ * The NDC window the fitted content must land in.
+ *
+ * HTML overlays sit along the top and bottom of the stage, so the fit works in
+ * a band rather than a plain fill factor: every sample has to land inside it,
+ * and the band is derived from the real overlay height in pixels.
+ */
+interface FitBand {
+  xMin: number
+  xMax: number
+  yMin: number
+  yMax: number
+}
+
+/**
  * Distance at which every sample point fits inside the camera frustum.
  *
- * Solved by iteration — project the samples, measure the worst overflow on each
- * axis, rescale, repeat. It converges in a few passes and, unlike a
+ * Solved by iteration — project the samples, measure the worst overflow beyond
+ * the band, rescale, repeat. It converges in a few passes and, unlike a
  * bounding-sphere approximation, stays correct for the flat oblique subject and
  * for portrait aspect ratios.
  */
@@ -100,9 +114,13 @@ function fitDistance(
   target: THREE.Vector3,
   direction: THREE.Vector3,
   samples: THREE.Vector3[],
-  fill: { x: number; y: number },
+  band: FitBand,
 ): number {
   const projected = new THREE.Vector3()
+  const halfX = (band.xMax - band.xMin) / 2 || 1
+  const halfY = (band.yMax - band.yMin) / 2 || 1
+  const centerX = (band.xMax + band.xMin) / 2
+  const centerY = (band.yMax + band.yMin) / 2
   let distance = 12
 
   for (let pass = 0; pass < 10; pass += 1) {
@@ -110,17 +128,16 @@ function fitDistance(
     camera.lookAt(target)
     camera.updateMatrixWorld()
 
-    let worstX = 0
-    let worstY = 0
+    let worst = 0
     for (const point of samples) {
       projected.copy(point).project(camera)
-      worstX = Math.max(worstX, Math.abs(projected.x))
-      worstY = Math.max(worstY, Math.abs(projected.y))
+      const overflowX = (Math.abs(projected.x - centerX) - halfX) / halfX
+      const overflowY = (Math.abs(projected.y - centerY) - halfY) / halfY
+      worst = Math.max(worst, overflowX, overflowY)
     }
-    const overflow = Math.max(worstX / fill.x, worstY / fill.y)
-    if (overflow < 1e-4) break
+    if (worst <= 0.002) break
 
-    const next = distance * overflow
+    const next = distance * (1 + worst)
     const settled = Math.abs(next - distance) < distance * 0.004
     distance = next
     if (settled) break
@@ -137,7 +154,10 @@ function fitDistance(
 export class DiceScene {
   private readonly container: HTMLElement
   private readonly onSettle: (() => void) | undefined
-  private readonly labels: { player: string; ai: string; shared: string }
+  private labels: { player: string; ai: string; shared: string }
+  /** Last applied layout parameters, so `setLabels` can recompute trays only. */
+  private lastCount = DICE_MIN
+  private lastSeats: 1 | 2 = 1
 
   private readonly renderer: THREE.WebGLRenderer
   private readonly scene: THREE.Scene
@@ -169,6 +189,13 @@ export class DiceScene {
   private dirty = true
   private reduceMotion = false
   private disposed = false
+
+  /**
+   * Height in pixels of the HTML chrome hugging the top and bottom of the
+   * stage. The camera fits its content into whatever is left, which is how the
+   * on-table console reserves its room without shrinking the canvas.
+   */
+  private insets = { top: 56, bottom: 84 }
 
   /** Camera fly-to state, used by the view preset buttons. */
   private tween: {
@@ -302,6 +329,8 @@ export class DiceScene {
   /** Rebuild the table, trays and dice for a new count / seat setup. */
   setLayout(count: number, seats: 1 | 2): void {
     const safeCount = THREE.MathUtils.clamp(Math.round(count), DICE_MIN, DICE_MAX)
+    this.lastCount = safeCount
+    this.lastSeats = seats
     this.layout = computeLayout({
       count: safeCount,
       seats,
@@ -414,9 +443,57 @@ export class DiceScene {
     this.markDirty()
   }
 
+  /** Re-point the tray labels (language switch) without touching the dice. */
+  setLabels(labels: { player: string; ai: string; shared: string }): void {
+    this.labels = labels
+    this.layout = computeLayout({
+      count: this.lastCount,
+      seats: this.lastSeats,
+      dieSize: DIE_SIZE,
+      labels,
+    })
+    this.buildTrays()
+    this.markDirty()
+  }
+
   setReducedMotion(value: boolean): void {
     this.reduceMotion = value
     this.sim.setReducedMotion(value)
+  }
+
+  /**
+   * Tell the scene how tall the stage's HTML chrome is, in pixels, so the next
+   * fit keeps the dice clear of it. Refits only when the numbers actually move.
+   */
+  setOverlayInsets(insets: { top: number; bottom: number }): void {
+    const top = Math.max(0, Math.round(insets.top))
+    const bottom = Math.max(0, Math.round(insets.bottom))
+    if (top === this.insets.top && bottom === this.insets.bottom) return
+    this.insets = { top, bottom }
+    this.fitCamera(true)
+    this.markDirty()
+  }
+
+  /**
+   * Shift the projection so the table centres in the space the overlays leave,
+   * instead of in the middle of the whole stage. The orbit target stays put —
+   * it is the pivot the player rotates around — so this has to happen in the
+   * projection, via three's view offset.
+   */
+  private applyViewOffset(): void {
+    const width = this.container.clientWidth || 1
+    const height = this.container.clientHeight || 1
+    const extra = this.insets.bottom - this.insets.top
+
+    if (extra === 0) {
+      this.camera.clearViewOffset()
+    } else if (extra > 0) {
+      // More chrome below: show the bottom slice of a taller virtual frame.
+      this.camera.setViewOffset(width, height + extra, 0, extra, width, height)
+    } else {
+      // More chrome above: show the top slice.
+      this.camera.setViewOffset(width, height - extra, 0, 0, width, height)
+    }
   }
 
   /**
@@ -523,22 +600,23 @@ export class DiceScene {
    * whichever direction the player has orbited to.
    */
   private fitCamera(preserveDirection: boolean): void {
+    this.applyViewOffset()
     if (!preserveDirection) {
       const elevation = PRESET_ELEVATION.default
       this.camera.position.set(0, Math.sin(elevation) * 12, Math.cos(elevation) * 12)
     }
 
     const samples: THREE.Vector3[] = []
-    const rimSegments = 36
-    // Slightly inside the rim: letting the felt bleed past the frame edge reads
-    // as a real table rather than a disc floating in space.
-    const rim = this.tableRadius * 0.95
-    for (let i = 0; i < rimSegments; i += 1) {
-      const angle = (i / rimSegments) * Math.PI * 2
-      samples.push(new THREE.Vector3(Math.cos(angle) * rim, 0, Math.sin(angle) * rim))
-    }
+    // Fit against the dice and the felt trays, padded a little for shadows.
+    // The outer felt is deliberately absent from this list: it runs past the
+    // frame, which reads as a close-up on the action rather than a floating
+    // disc that has to be shrunk to fit.
     for (const slot of [...this.layout.player, ...this.layout.ai]) {
-      samples.push(slot.position.clone().setY(DIE_SIZE))
+      samples.push(pushOut(slot.position.clone().setY(DIE_SIZE), DIE_SIZE * 1.1))
+    }
+    const trays = [this.layout.trays.player, ...(this.layout.trays.ai ? [this.layout.trays.ai] : [])]
+    for (const tray of trays) {
+      for (const point of trayOutlinePoints(tray, 28)) samples.push(pushOut(point, 0.55))
     }
 
     const direction = this.camera.position.clone().sub(ORBIT_TARGET)
@@ -547,13 +625,29 @@ export class DiceScene {
     }
     direction.normalize()
 
-    const distance = fitDistance(
-      this.camera,
-      ORBIT_TARGET,
-      direction,
-      samples,
-      fitFillFor(this.camera.aspect),
-    )
+    // The overlays eat different amounts of the top and bottom edges, so the
+    // dice should not be centred in the frame — they belong in the middle of
+    // whatever is left. Shifting the projection (not the orbit target, which
+    // must stay the pivot) does exactly that: render the bottom slice of a
+    // taller virtual frame and the table rides above the console.
+    const width = this.container.clientWidth || 1
+    const height = this.container.clientHeight || 1
+    const extra = this.insets.bottom - this.insets.top
+    if (extra === 0) this.camera.clearViewOffset()
+    else if (extra > 0) this.camera.setViewOffset(width, height + extra, 0, extra, width, height)
+    else this.camera.setViewOffset(width, height - extra, 0, 0, width, height)
+
+    // With the offset applied the content centres at NDC `extra / height`, and
+    // the free vertical space between the two overlays is the band it must fit.
+    const halfNdc = Math.max(0.08, (height - this.insets.top - this.insets.bottom) / height)
+    const band: FitBand = {
+      xMin: -0.96,
+      xMax: 0.96,
+      yMin: extra / height - halfNdc,
+      yMax: extra / height + halfNdc,
+    }
+
+    const distance = fitDistance(this.camera, ORBIT_TARGET, direction, samples, band)
     this.camera.position.copy(direction).multiplyScalar(distance).add(ORBIT_TARGET)
     this.controls.target.copy(ORBIT_TARGET)
     this.controls.minDistance = distance * 0.5
@@ -625,4 +719,5 @@ export class DiceScene {
       this.dirty = false
     }
   }
+
 }

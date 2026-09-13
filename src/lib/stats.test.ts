@@ -2,16 +2,18 @@ import { describe, expect, it } from 'vitest'
 import { analyzeOpenRoll, faceDistribution } from './stats'
 
 describe('analyzeOpenRoll', () => {
-  it('calls all-same rolls 豹子', () => {
+  it('calls all-same rolls a leopard', () => {
     const verdict = analyzeOpenRoll([3, 3, 3])
-    expect(verdict.label).toBe('豹子')
+    expect(verdict.kind).toBe('leopard')
+    expect(verdict.leopardFace).toBe(3)
     expect(verdict.isAllSame).toBe(true)
     expect(verdict.summary.sum).toBe(9)
   })
 
-  it('calls distinct consecutive faces 顺子', () => {
+  it('calls distinct consecutive faces a straight', () => {
     const verdict = analyzeOpenRoll([1, 2, 3, 4, 5])
-    expect(verdict.label).toBe('顺子')
+    expect(verdict.kind).toBe('straight')
+    expect(verdict.straightFaces).toEqual([1, 2, 3, 4, 5])
     expect(verdict.isStraight).toBe(true)
     expect(verdict.isAllSame).toBe(false)
   })

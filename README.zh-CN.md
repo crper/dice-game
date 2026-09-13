@@ -34,8 +34,9 @@
 - **投掷物理** —— 先自由翻滚，再收敛落定，每一颗骰子最终朝向都经过证明是正确的。
 - **交互不会添乱** —— 相机转动的范围不足以把对面一方转到前面来；三个固定视角按钮取代「只能拖拽」；移动端纵向翻页不会被画布吞掉；明牌模式里桌面本身就是投掷按钮。
 - **响应式** —— 手机单列、笔记本「桌面 + 操作台」、宽屏再加侧栏。相机取景会主动给浮层留出空间，骰子不会被按钮压住；在 800px 高的视口里主要操作按钮依然在首屏之内。
+- **双语界面** —— 默认简体中文，顶栏一键切换英文，偏好会记住；连桌布上的托盘标签都会跟着语言重绘。
 - **看得懂的反馈** —— 按钮状态明确、桌面上有实时阶段提示、胜负横幅的措辞由实际判定推导、开盅有动效，以及合成音效（不携带任何音频文件，可静音）。
-- **可访问性** —— 原生 `<dialog>`、真实的单选组与复选框语义、`role="status"` 播报、可见的焦点环，并尊重 `prefers-reduced-motion`（直接跳过滚动动画）。
+- **可访问性** —— 基于 Radix 的 shadcn/ui 原语（对话框、滑杆、开关、切换组）、`role="status"` 播报、可见的焦点环，并尊重 `prefers-reduced-motion`（直接跳过滚动动画）。
 - **降级兜底** —— 若设备不支持 WebGL，桌面会退化为平面骰面展示同样的结果，而不是抛出错误页。
 
 ## 规则速览
@@ -87,21 +88,22 @@ npm run dev          # http://localhost:5173
 ```
 src/
 ├── components/           # 展示型与容器型组件
-│   ├── ui/               # 可复用基础组件（Button、Dialog、Stepper、Switch 等）
-│   ├── DiceStage.tsx     # WebGL 画布宿主与其上的浮层
-│   ├── BidPanel.tsx      # 玩家叫骰操作台
+│   ├── ui/               # shadcn/ui 基础组件（button、dialog、slider、switch 等）
+│   │                     # 以及游戏专属件（PipFace、图标统一出口）
+│   ├── DiceStage.tsx     # WebGL 画布宿主、HUD 与桌面上的操作台
+│   ├── TableConsole.tsx  # 上桌控制台：大话骰叫骰 / 明牌数量 + 掷骰
 │   ├── ResultCard.tsx    # 开盅后的判定详情
 │   └── OpenRollCard.tsx  # 明牌模式的结果报告
 ├── hooks/
 │   ├── useDiceGame.ts    # 回合编排：计时、AI 出牌、音效、偏好持久化
 │   └── useDiceScene.ts   # 把 React 状态桥接到命令式的 Three.js 场景
-├── lib/                  # 纯逻辑，不含 React 与 Three.js
+├── i18n/                 # react-i18next 配置与中/英文案树（默认中文）
+├── lib/                  # 纯逻辑，不含 React、Three.js 与界面文案
 │   ├── constants.ts      # 调参值与上限
 │   ├── dice.ts           # 掷骰、统计、随机数
 │   ├── liarDice.ts       # 叫骰校验、概率估算、AI 决策
 │   ├── sound.ts          # 合成音效（WebAudio）
-│   ├── stats.ts          # 明牌模式的判定与分布
-│   └── copy.ts           # 全部界面文案
+│   └── stats.ts          # 明牌模式的结构化判定与分布
 ├── state/
 │   └── gameReducer.ts    # 纯函数游戏状态机
 ├── three/                # 全部 Three.js 代码
@@ -153,10 +155,12 @@ VITE_BASE=/your-repo/ npm run build
 | 层次 | 选型 |
 | --- | --- |
 | 界面 | React 19 |
-| 语言 | TypeScript 6（严格模式、`verbatimModuleSyntax`、`erasableSyntaxOnly`） |
+| 组件 | shadcn/ui（Radix 原语）—— button、dialog、slider、switch、toggle group、card、badge |
+| 语言 | TypeScript 7（严格模式、`verbatimModuleSyntax`、`erasableSyntaxOnly`） |
 | 构建 | Vite 8（Rolldown），CI 使用 Vite+ 工具链 |
-| 3D | Three.js 0.185 |
-| 样式 | Tailwind CSS 4，`clsx` + `tailwind-merge` |
+| 3D | Three.js 0.186 |
+| 样式 | Tailwind CSS 4，`cn` 类名合并工具 |
+| 多语言 | i18next + react-i18next（默认简体中文，一键切英文） |
 | 图标 | lucide-react |
 | 测试 | Vitest |
 | 代码检查 | Oxlint |

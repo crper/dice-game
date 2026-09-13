@@ -16,6 +16,9 @@ export interface DiceSceneInput {
   playerDice: number[]
   aiDice: number[]
   aiRevealed: boolean
+  /** Stage chrome height in pixels, so the camera fits around the overlays. */
+  insetTop: number
+  insetBottom: number
 }
 
 export interface DiceSceneApi {
@@ -45,7 +48,21 @@ function hasWebGL(): boolean {
  * first instead of showing a blank screen.
  */
 export function useDiceScene(input: DiceSceneInput): DiceSceneApi {
-  const { containerRef, canvasRef, onSettle, labels, diceCount, seats, reduceMotion, rollId, playerDice, aiDice, aiRevealed } = input
+  const {
+    containerRef,
+    canvasRef,
+    onSettle,
+    labels,
+    diceCount,
+    seats,
+    reduceMotion,
+    rollId,
+    playerDice,
+    aiDice,
+    aiRevealed,
+    insetTop,
+    insetBottom,
+  } = input
 
   const sceneRef = useRef<DiceScene | null>(null)
   const onSettleRef = useRef(onSettle)
@@ -120,12 +137,23 @@ export function useDiceScene(input: DiceSceneInput): DiceSceneApi {
     scene.setLayout(diceCount, seats)
   }, [diceCount, seats, sceneEpoch])
 
+  // Language switches repaint the tray labels only — dice keep their state.
+  const labelsSignature = `${labels.player}|${labels.ai}|${labels.shared}`
+  useEffect(() => {
+    sceneRef.current?.setLabels(labels)
+    // oxlint-disable-next-line react/exhaustive-deps -- keyed on the joined labels, not object identity
+  }, [labelsSignature, sceneEpoch])
+
   useEffect(() => {
     const scene = sceneRef.current
     if (!scene || appliedMotionRef.current === reduceMotion) return
     appliedMotionRef.current = reduceMotion
     scene.setReducedMotion(reduceMotion)
   }, [reduceMotion, sceneEpoch])
+
+  useEffect(() => {
+    sceneRef.current?.setOverlayInsets({ top: insetTop, bottom: insetBottom })
+  }, [insetTop, insetBottom, sceneEpoch])
 
   // One roll per rollId — dice values and the conceal flag arrive together.
   useEffect(() => {

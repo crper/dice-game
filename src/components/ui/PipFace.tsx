@@ -1,4 +1,4 @@
-import { cn } from '../../lib/cn'
+import { cn } from 'cn'
 
 /**
  * Pip positions as fractions of the face, shared with the 3D texture layouts so

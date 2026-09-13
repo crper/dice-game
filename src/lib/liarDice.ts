@@ -166,6 +166,3 @@ export function aiFirstCall(context: AiContext): Call {
 }
 
 /** Human-readable bid, e.g. "4 个 3". */
-export function formatCall(call: Call): string {
-  return `${call.quantity} 个 ${call.face}`
-}
